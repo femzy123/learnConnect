@@ -60,8 +60,8 @@ export default function SignUpPage() {
         onChange={(e) => setRole(e.target.value)}
         className="w-full border p-2 rounded"
       >
-        <option value="student">I'm a Student</option>
-        <option value="teacher">I'm a Teacher</option>
+        <option value="student">I&apos;m a Student</option>
+        <option value="teacher">I&apos;m a Teacher</option>
       </select>
 
       <button
