@@ -14,7 +14,7 @@ export default function Home() {
           <Link href="/#how-it-works" className="text-gray-700 hover:text-blue-600">How It Works</Link>
           <Link href="/#why" className="text-gray-700 hover:text-blue-600">Why Us</Link>
           <Link href="/#testimonials" className="text-gray-700 hover:text-blue-600">Testimonials</Link>
-          <Link href="/login" className="text-blue-600 font-semibold">Login</Link>
+          <Link href="/auth/login" className="text-blue-600 font-semibold">Login</Link>
         </nav>
         <button className="md:hidden text-gray-700" onClick={() => setMenuOpen(!menuOpen)}>
           &#9776;
@@ -34,8 +34,8 @@ export default function Home() {
         <h1 className="text-3xl md:text-4xl font-bold mb-4">Connect with Vetted Teachers for Personalized Learning</h1>
         <p className="text-base md:text-lg mb-6">Submit your goals, get matched, and start learning — with trusted experts.</p>
         <div className="flex flex-col md:flex-row justify-center items-center gap-4">
-          <Link href="/signup?role=student" className="px-6 py-3 bg-blue-600 text-white rounded-xl shadow text-center">Get Started as a Student</Link>
-          <Link href="/signup?role=teacher" className="px-6 py-3 bg-gray-200 text-gray-800 rounded-xl shadow text-center">Teach on LearnConnect</Link>
+          <Link href="/auth/signup?role=student" className="px-6 py-3 bg-blue-600 text-white rounded-xl shadow text-center">Get Started as a Student</Link>
+          <Link href="/auth/signup?role=teacher" className="px-6 py-3 bg-gray-200 text-gray-800 rounded-xl shadow text-center">Teach on LearnConnect</Link>
         </div>
       </section>
 
