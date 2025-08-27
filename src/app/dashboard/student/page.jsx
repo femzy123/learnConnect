@@ -1,4 +1,4 @@
-export default function StudentHomePage() {
+export default function StudentDashboard() {
   return (
     <>
       <h1 className="text-2xl font-bold mb-4">Welcome to your Student Dashboard</h1>

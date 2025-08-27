@@ -1,76 +1,24 @@
-'use client'
+import SignupForm from "./SignupForm";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '../../../utils/supabase/client'
+export const metadata = { title: "Sign up — LearnConect" };
 
-export default function SignUpPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState('student')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
-  const handleSignUp = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { role }
-      }
-    })
-
-    setLoading(false)
-
-    if (error) {
-      alert(error.message)
-    } else {
-      alert('Registration complete!')
-      router.push('/auth/login')
-    }
-  }
+export default function SignupPage() {
 
   return (
-    <form onSubmit={handleSignUp} className="max-w-md mx-auto mt-12 p-6 border rounded-xl shadow space-y-4">
-      <h1 className="text-2xl font-bold text-center">Create an Account</h1>
+    <div className="min-h-screen px-4 flex items-center justify-center">
+      <div className="w-full max-w-md space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Create your account</h1>
+          <p className="text-sm text-muted-foreground">It takes less than a minute.</p>
+        </div>
 
-      <input
-        type="email"
-        placeholder="Email"
-        className="w-full border p-2 rounded"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
+        <SignupForm />
 
-      <input
-        type="password"
-        placeholder="Password"
-        className="w-full border p-2 rounded"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-
-      <select
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-        className="w-full border p-2 rounded"
-      >
-        <option value="student">I&apos;m a Student</option>
-        <option value="teacher">I&apos;m a Teacher</option>
-      </select>
-
-      <button
-        type="submit"
-        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-        disabled={loading}
-      >
-        {loading ? 'Creating account...' : 'Sign Up'}
-      </button>
-    </form>
-  )
+        <div className="text-sm">
+          Already have an account? <a className="underline" href="/auth/login">Log in</a>
+        </div>
+      </div>
+    </div>
+  );
 }

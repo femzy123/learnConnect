@@ -14,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${openSans.variable}`}>
+      <body suppressHydrationWarning className={`${openSans.variable}`}>
         {children}
       </body>
     </html>
