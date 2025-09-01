@@ -1,6 +1,8 @@
 import { Open_Sans } from "next/font/google";
 import "./globals.css";
 
+import { Toaster } from "@/components/ui/sonner";
+
 const openSans = Open_Sans({
   subsets: ["latin"],
   variable: "--font-open-sans",
@@ -16,6 +18,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body suppressHydrationWarning className={`${openSans.variable}`}>
         {children}
+        <Toaster richColors closeButton />
       </body>
     </html>
   );

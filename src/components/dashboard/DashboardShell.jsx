@@ -16,12 +16,13 @@ export default function DashboardShell({ role, profile, user, children }) {
   const navByRole = {
     student: [
       { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
+      { label: "Profile",  href: "/dashboard/student/profile", icon: LayoutDashboard },
       { label: "New request", href: "/dashboard/student/request", icon: ListPlus },
       // { label: "Messages", href: "/dashboard/student/messages", icon: MessagesSquare }, // later
     ],
     teacher: [
       { label: "Overview", href: "/dashboard/teacher", icon: LayoutDashboard },
-      { label: "Onboarding", href: "/dashboard/teacher/onboarding", icon: ListPlus },
+      { label: "Profile",    href: "/dashboard/teacher/profile", icon: LayoutDashboard },
       // { label: "Sessions", href: "/dashboard/teacher/sessions", icon: MessagesSquare }, // later
     ],
     admin: [
