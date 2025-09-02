@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
 import AuthErrorAlert from "@/components/AuthErrorAlert";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from "@/components/ui/select";
 
 export default function RequestForm({ categories, subjects }) {
   const [categoryId, setCategoryId] = useState("");
@@ -18,7 +24,7 @@ export default function RequestForm({ categories, subjects }) {
   const router = useRouter();
 
   const filteredSubjects = useMemo(
-    () => subjects.filter((s) => s.category_id === categoryId),
+    () => subjects.filter((s) => String(s.category_id) === categoryId),
     [subjects, categoryId]
   );
 
@@ -52,11 +58,7 @@ export default function RequestForm({ categories, subjects }) {
       status: "open",
     });
 
-    if (error) {
-      setError(error.message);
-      return;
-    }
-
+    if (error) { setError(error.message); return; }
     startTransition(() => router.replace("/dashboard/student?created=1"));
   }
 
@@ -64,86 +66,89 @@ export default function RequestForm({ categories, subjects }) {
     <form onSubmit={onSubmit} className="grid gap-4">
       <AuthErrorAlert title="Couldn’t create request" message={error} />
 
+      {/* Category */}
       <div className="grid gap-2">
-        <label className="text-sm" htmlFor="category">Category</label>
-        <select
-          id="category"
+        <Label htmlFor="category">Category</Label>
+        <Select
           value={categoryId}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
-            setSubjectId("");
-          }}
-          className="h-10 w-full rounded-md border bg-background px-3"
-          required
+          onValueChange={(v) => { setCategoryId(v); setSubjectId(""); }}
         >
-          <option value="" disabled>Select a category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+          <SelectTrigger id="category" className="w-full">
+            <SelectValue placeholder="Select a category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
+      {/* Subject */}
       <div className="grid gap-2">
-        <label className="text-sm" htmlFor="subject">Subject</label>
-        <select
-          id="subject"
+        <Label htmlFor="subject">Subject</Label>
+        <Select
           value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          className="h-10 w-full rounded-md border bg-background px-3"
-          required
+          onValueChange={setSubjectId}
           disabled={!categoryId}
         >
-          <option value="" disabled>
-            {categoryId ? "Select a subject" : "Choose a category first"}
-          </option>
-          {filteredSubjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+          <SelectTrigger id="subject" className="w-full" disabled={!categoryId}>
+            <SelectValue placeholder={categoryId ? "Select a subject" : "Choose a category first"} />
+          </SelectTrigger>
+          <SelectContent>
+            {filteredSubjects.map((s) => (
+              <SelectItem key={s.id} value={String(s.id)}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
+      {/* Topic */}
       <div className="grid gap-2">
-        <label className="text-sm" htmlFor="topic">Topic (what do you want to learn?)</label>
-        <input
+        <Label htmlFor="topic">Topic (what do you want to learn?)</Label>
+        <Input
           id="topic"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          className="h-10 w-full rounded-md border bg-background px-3"
           placeholder="e.g., JavaScript arrays"
           required
         />
       </div>
 
+      {/* Goals */}
       <div className="grid gap-2">
-        <label className="text-sm" htmlFor="goals">Goals (optional)</label>
-        <textarea
+        <Label htmlFor="goals">Goals (optional)</Label>
+        <Textarea
           id="goals"
           value={goals}
           onChange={(e) => setGoals(e.target.value)}
-          className="min-h-[90px] w-full rounded-md border bg-background p-3"
           placeholder="Tell the teacher what success looks like"
         />
       </div>
 
+      {/* Times & Budget */}
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="grid gap-2">
-          <label className="text-sm" htmlFor="times">Preferred times (optional)</label>
-          <input
+          <Label htmlFor="times">Preferred times (optional)</Label>
+          <Input
             id="times"
             value={times}
             onChange={(e) => setTimes(e.target.value)}
-            className="h-10 w-full rounded-md border bg-background px-3"
             placeholder="e.g., weekday evenings"
           />
         </div>
         <div className="grid gap-2">
-          <label className="text-sm" htmlFor="budget">Budget (optional)</label>
-          <input
+          <Label htmlFor="budget">Budget (optional)</Label>
+          <Input
             id="budget"
+            inputMode="numeric"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="h-10 w-full rounded-md border bg-background px-3"
-            placeholder="e.g., $20/hour"
+            placeholder="e.g., ₦5,000/hour"
           />
         </div>
       </div>
