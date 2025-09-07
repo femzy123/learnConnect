@@ -7,14 +7,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import GovIdViewer from "@/components/admin/GovIdViewer";
 import CertificatesList from "@/components/CertificatesList";
 
-export const metadata = { title: "Admin — Vet teacher" };
+export const metadata = { title: "Admin — Teacher (View/Edit)" };
 
 function formatNGN(minor) {
   const major = Number(minor || 0) / 100;
   return `₦${major.toLocaleString(undefined, { maximumFractionDigits: 2 })}/hr`;
 }
 
-// ----- Server actions -----
 async function vetAction(formData) {
   "use server";
   const status = String(formData.get("status") || "");
@@ -25,14 +24,14 @@ async function vetAction(formData) {
   await supabase.from("teacher_profiles").update({ vetting_status: status }).eq("user_id", teacherId);
 
   revalidatePath(`/dashboard/admin/teachers/${teacherId}`);
-  redirect("/dashboard/admin/teachers");
+  redirect("/dashboard/admin/users?tab=teachers");
 }
 
-export default async function AdminTeacherDetailPage({ params }) {
-  const supabase = await createClient();
+export default async function AdminTeacherDetailPage(props) {
+  const params = await props.params; 
   const teacherId = params.id;
 
-  // Load core + teaching info
+  const supabase = await createClient();
   const [{ data: p }, { data: t }, { data: ts = [] }, { data: subjects = [] }] = await Promise.all([
     supabase.from("profiles").select("full_name, avatar_url, phone").eq("id", teacherId).maybeSingle(),
     supabase.from("teacher_profiles").select("bio, hourly_rate, availability, vetting_status").eq("user_id", teacherId).maybeSingle(),
@@ -43,12 +42,15 @@ export default async function AdminTeacherDetailPage({ params }) {
 
   const subjMap = new Map(subjects.map((s) => [s.id, s.name]));
   const subjNames = ts.map((r) => subjMap.get(r.subject_id)).filter(Boolean);
+  const isApproved = (t?.vetting_status || "").toLowerCase() === "approved";
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Review teacher</h1>
-        <div className="text-sm text-muted-foreground">Vetting status: <strong className="capitalize">{t?.vetting_status || "pending"}</strong></div>
+        <h1 className="text-2xl font-semibold">Teacher - {p?.full_name || ''}</h1>
+        <div className="text-sm text-muted-foreground">
+          Status: <strong className="capitalize">{t?.vetting_status || "pending"}</strong>
+        </div>
       </div>
 
       <Card>
@@ -67,20 +69,20 @@ export default async function AdminTeacherDetailPage({ params }) {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="text-sm">
+            <div className="space-y-3 text-sm">
+              <div>
                 <div className="text-muted-foreground">Hourly rate</div>
                 <div className="font-medium">{formatNGN(t?.hourly_rate)}</div>
               </div>
-              <div className="text-sm">
+              <div>
                 <div className="text-muted-foreground">Subjects</div>
                 <div>{subjNames.length ? subjNames.join(", ") : "—"}</div>
               </div>
-              <div className="text-sm">
+              <div>
                 <div className="text-muted-foreground">Bio</div>
                 <div>{t?.bio || "—"}</div>
               </div>
-              <div className="text-sm">
+              <div>
                 <div className="text-muted-foreground">Availability notes</div>
                 <div>{Array.isArray(t?.availability) && t.availability.length ? t.availability.join(", ") : "—"}</div>
               </div>
@@ -98,23 +100,23 @@ export default async function AdminTeacherDetailPage({ params }) {
             <GovIdViewer userId={teacherId} />
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-6 space-y-2">
             <h2 className="text-lg font-semibold">Certificates</h2>
-            <p className="text-sm text-muted-foreground">You can view individual files below.</p>
             <CertificatesList userId={teacherId} />
           </CardContent>
         </Card>
       </div>
 
-      {/* Actions */}
+      {/* Vetting actions */}
       <div className="flex flex-col gap-3 sm:flex-row">
-        <form action={vetAction}>
-          <input type="hidden" name="teacher_id" value={teacherId} />
-          <input type="hidden" name="status" value="approved" />
-          <Button type="submit" className="w-full sm:w-auto">Approve</Button>
-        </form>
+        {!isApproved && (
+          <form action={vetAction}>
+            <input type="hidden" name="teacher_id" value={teacherId} />
+            <input type="hidden" name="status" value="approved" />
+            <Button type="submit" className="w-full sm:w-auto">Approve</Button>
+          </form>
+        )}
         <form action={vetAction}>
           <input type="hidden" name="teacher_id" value={teacherId} />
           <input type="hidden" name="status" value="rejected" />

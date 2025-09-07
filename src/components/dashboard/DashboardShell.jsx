@@ -27,8 +27,8 @@ export default function DashboardShell({ role, profile, user, children }) {
     ],
     admin: [
       { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },
+      { label: "Users", href: "/dashboard/admin/users", icon: Users },
       { label: "Requests", href: "/dashboard/admin/requests", icon: ListPlus },
-      { label: "Teachers", href: "/dashboard/admin/teachers", icon: Users },
       { label: "Payments", href: "/dashboard/admin/payments", icon: CreditCard },
     ],
   };
