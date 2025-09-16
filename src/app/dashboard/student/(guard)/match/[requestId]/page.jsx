@@ -41,7 +41,7 @@ async function declineMatchAction(formData) {
 export const metadata = { title: "Review match — LearnConect" };
 
 export default async function StudentMatchPage({ params }) {
-  const { requestId } = params;
+  const { requestId } = await params;
   const supabase = await createClient();
 
   const { data: { user } = {} } = await supabase.auth.getUser();

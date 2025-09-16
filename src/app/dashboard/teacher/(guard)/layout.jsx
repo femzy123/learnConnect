@@ -10,7 +10,7 @@ export default async function TeacherGuardLayout({ children }) {
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, role, full_name, phone, avatar_url")
+        .select("id, role, full_name, phone, avatar_url, account_status")
         .eq("id", user.id)
         .single(),
       supabase
@@ -23,6 +23,10 @@ export default async function TeacherGuardLayout({ children }) {
         .select("subject_id")
         .eq("teacher_user_id", user.id),
     ]);
+
+  if (profile?.account_status === "deactivated") {
+    redirect("/auth/deactivated");
+  }
 
   // Only teacher or admin can be here
   if (profile?.role !== "teacher" && profile?.role !== "admin") {

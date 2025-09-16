@@ -8,9 +8,13 @@ export default async function StudentGuardLayout({ children }) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, full_name, phone, avatar_url")
+    .select("id, role, full_name, phone, avatar_url, account_status")
     .eq("id", user.id)
     .single();
+
+  if (profile?.account_status === "deactivated") {
+    redirect("/auth/deactivated");
+  }
 
   // Only student or admin can be here
   if (profile?.role !== "student" && profile?.role !== "admin") {
@@ -18,7 +22,8 @@ export default async function StudentGuardLayout({ children }) {
   }
 
   // Require name, phone, avatar
-  const incomplete = !profile?.full_name || !profile?.phone || !profile?.avatar_url;
+  const incomplete =
+    !profile?.full_name || !profile?.phone || !profile?.avatar_url;
   if (incomplete) redirect("/dashboard/student/profile?incomplete=1");
 
   return <>{children}</>;

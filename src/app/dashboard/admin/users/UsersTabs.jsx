@@ -6,20 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-function StatusPill({ status }) {
-  const s = (status || "pending").toLowerCase();
-  const styles =
-    s === "approved"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-      : s === "rejected"
-      ? "bg-rose-50 text-rose-700 border-rose-200"
-      : "bg-amber-50 text-amber-700 border-amber-200";
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${styles}`}>
-      {s}
-    </span>
-  );
+function Pill({ text, tone }) {
+  const map = {
+    ok: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    warn: "bg-amber-50 text-amber-700 border-amber-200",
+    danger: "bg-rose-50 text-rose-700 border-rose-200",
+    muted: "bg-muted/50 text-muted-foreground border-muted",
+  };
+  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${map[tone]}`}>{text}</span>;
 }
+const StatusPill = ({ status }) => <Pill text={(status || "pending").toLowerCase()} tone={status==="approved"?"ok":status==="rejected"?"danger":"warn"} />;
+const AccountPill = ({ status }) => <Pill text={(status || "active")} tone={status==="deactivated"?"danger":"ok"} />;
 
 function formatNGN(minor) {
   if (minor == null) return "—";
@@ -27,7 +24,7 @@ function formatNGN(minor) {
   return `₦${major.toLocaleString(undefined, { maximumFractionDigits: 2 })}/hr`;
 }
 
-export default function UsersTabs({ defaultTab = "teachers", teachersRaw, studentsRaw }) {
+export default function UsersTabs({ defaultTab = "teachers", teachersRaw, studentsRaw, toggleAccountAction }) {
   const [tab, setTab] = useState(defaultTab);
   const [q, setQ] = useState("");
 
@@ -77,29 +74,42 @@ export default function UsersTabs({ defaultTab = "teachers", teachersRaw, studen
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Vetting</th>
                 <th className="px-4 py-3">Rate</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">Account</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {teachers.map((t) => (
-                <tr key={t.user_id} className="border-t">
-                  <td className="px-4 py-3">{t.profiles?.full_name || t.user_id}</td>
-                  <td className="px-4 py-3">{t.profiles?.phone || "—"}</td>
-                  <td className="px-4 py-3"><StatusPill status={t.vetting_status} /></td>
-                  <td className="px-4 py-3">{formatNGN(t.hourly_rate)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button size="sm" asChild>
-                      <Link href={`/dashboard/admin/teachers/${t.user_id}`}>View</Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {teachers.map((t) => {
+                const acct = t.profiles?.account_status || "active";
+                const next = acct === "active" ? "deactivated" : "active";
+                return (
+                  <tr key={t.user_id} className="border-t">
+                    <td className="px-4 py-3">{t.profiles?.full_name || t.user_id}</td>
+                    <td className="px-4 py-3">{t.profiles?.phone || "—"}</td>
+                    <td className="px-4 py-3"><StatusPill status={t.vetting_status} /></td>
+                    <td className="px-4 py-3">{formatNGN(t.hourly_rate)}</td>
+                    <td className="px-4 py-3"><AccountPill status={acct} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" asChild>
+                          <Link href={`/dashboard/admin/teachers/${t.user_id}`}>View / Edit</Link>
+                        </Button>
+                        <form action={toggleAccountAction}>
+                          <input type="hidden" name="user_id" value={t.user_id} />
+                          <input type="hidden" name="new_status" value={next} />
+                          <Button size="sm" type="submit" variant={acct === "active" ? "destructive" : "outline"}>
+                            {acct === "active" ? "Deactivate" : "Activate"}
+                          </Button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {!teachers.length && (
-                <tr>
-                  <td className="px-4 py-6 text-muted-foreground" colSpan={5}>No teachers found.</td>
-                </tr>
+                <tr><td className="px-4 py-6 text-muted-foreground" colSpan={6}>No teachers found.</td></tr>
               )}
             </tbody>
           </table>
@@ -114,25 +124,38 @@ export default function UsersTabs({ defaultTab = "teachers", teachersRaw, studen
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">Account</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {students.map((s) => (
-                <tr key={s.id} className="border-t">
-                  <td className="px-4 py-3">{s.full_name || s.id}</td>
-                  <td className="px-4 py-3">{s.phone || "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button size="sm" asChild variant="outline">
-                      <Link href={`/dashboard/admin/students/${s.id}`}>View</Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {students.map((s) => {
+                const acct = s.account_status || "active";
+                const next = acct === "active" ? "deactivated" : "active";
+                return (
+                  <tr key={s.id} className="border-t">
+                    <td className="px-4 py-3">{s.full_name || s.id}</td>
+                    <td className="px-4 py-3">{s.phone || "—"}</td>
+                    <td className="px-4 py-3"><AccountPill status={acct} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" asChild variant="outline">
+                          <Link href={`/dashboard/admin/students/${s.id}`}>View</Link>
+                        </Button>
+                        <form action={toggleAccountAction}>
+                          <input type="hidden" name="user_id" value={s.id} />
+                          <input type="hidden" name="new_status" value={next} />
+                          <Button size="sm" type="submit" variant={acct === "active" ? "destructive" : "outline"}>
+                            {acct === "active" ? "Deactivate" : "Activate"}
+                          </Button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {!students.length && (
-                <tr>
-                  <td className="px-4 py-6 text-muted-foreground" colSpan={3}>No students found.</td>
-                </tr>
+                <tr><td className="px-4 py-6 text-muted-foreground" colSpan={4}>No students found.</td></tr>
               )}
             </tbody>
           </table>

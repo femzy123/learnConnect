@@ -17,7 +17,7 @@ export default function DashboardShell({ role, profile, user, children }) {
     student: [
       { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
       { label: "Profile",  href: "/dashboard/student/profile", icon: LayoutDashboard },
-      { label: "New request", href: "/dashboard/student/request", icon: ListPlus },
+      { label: "New request", href: "/dashboard/student/requests/new", icon: ListPlus },
       // { label: "Messages", href: "/dashboard/student/messages", icon: MessagesSquare }, // later
     ],
     teacher: [

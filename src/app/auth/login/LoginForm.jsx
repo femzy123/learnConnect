@@ -27,10 +27,15 @@ export default function LoginForm() {
 
     // Look up role + profile completeness
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, avatar_url, phone")
+    .from("profiles")
+    .select("role, avatar_url, phone, account_status")
       .eq("id", user.id)
       .single();
+
+    if (profile?.account_status === "deactivated") {
+    startTransition(() => router.replace("/auth/deactivated"));
+    return;
+  }
 
     let dest = "/auth/select-role";
     if (profile?.role === "admin") dest = "/dashboard/admin";
