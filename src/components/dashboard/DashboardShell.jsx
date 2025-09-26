@@ -23,6 +23,7 @@ export default function DashboardShell({ role, profile, user, children }) {
     teacher: [
       { label: "Overview", href: "/dashboard/teacher", icon: LayoutDashboard },
       { label: "Profile",    href: "/dashboard/teacher/profile", icon: LayoutDashboard },
+      { label: "Requests",   href: "/dashboard/teacher/requests", icon: MessagesSquare },
       // { label: "Sessions", href: "/dashboard/teacher/sessions", icon: MessagesSquare }, // later
     ],
     admin: [
