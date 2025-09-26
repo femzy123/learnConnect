@@ -12,50 +12,63 @@ export default function LoginForm() {
   const router = useRouter();
 
   async function onSubmit(e) {
-    e.preventDefault();
-    setError("");
+  e.preventDefault();
+  setError("");
 
-    const form = e.currentTarget;
-    const email = form.email.value.trim();
-    const password = form.password.value;
+  const form = e.currentTarget;
+  const email = form.email.value.trim();
+  const password = form.password.value;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); return; }
+  // 1) Auth
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) { setError(error.message); return; }
 
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) { setError("Login failed."); return; }
+  const { data: { user } = {} } = await supabase.auth.getUser();
+  if (!user) { setError("Login failed."); return; }
 
-    // Look up role + profile completeness
-    const { data: profile } = await supabase
+  // 2) Ensure a profile row exists (idempotent)
+  await supabase.rpc("ensure_profile");
+
+  // 3) Load profile (may have just been created)
+  const { data: profile, error: pErr } = await supabase
     .from("profiles")
     .select("role, avatar_url, phone, account_status")
-      .eq("id", user.id)
-      .single();
+    .eq("id", user.id)
+    .maybeSingle();
 
-    if (profile?.account_status === "deactivated") {
+  if (pErr) { setError(pErr.message); return; }
+
+  // Deactivated?
+  if (profile?.account_status === "deactivated") {
     startTransition(() => router.replace("/auth/deactivated"));
     return;
   }
 
-    let dest = "/auth/select-role";
-    if (profile?.role === "admin") dest = "/dashboard/admin";
-    if (profile?.role === "student") {
-      const incomplete = !profile.avatar_url || !profile.phone;
-      dest = incomplete ? "/dashboard/student/profile" : "/dashboard/student";
-    }
-    if (profile?.role === "teacher") {
-      const { data: tprof } = await supabase
-        .from("teacher_profiles")
-        .select("bio, hourly_rate")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const incomplete =
-        !profile.avatar_url || !profile.phone || !tprof?.bio || !tprof?.hourly_rate;
-      dest = incomplete ? "/dashboard/teacher/profile" : "/dashboard/teacher";
-    }
+  // 4) Decide destination
+  let dest = "/auth/select-role";
+  if (profile?.role === "admin") dest = "/dashboard/admin";
 
-    startTransition(() => router.replace(dest));
+  if (profile?.role === "student") {
+    const incomplete = !profile.avatar_url || !profile.phone;
+    dest = incomplete ? "/dashboard/student/profile" : "/dashboard/student";
   }
+
+  if (profile?.role === "teacher") {
+    // v2: no hourly_rate here; proposals flow sets price on acceptance
+    const { data: tprof } = await supabase
+      .from("teacher_profiles")
+      .select("bio")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const incomplete = !profile.avatar_url || !profile.phone || !tprof?.bio;
+    dest = incomplete ? "/dashboard/teacher/profile" : "/dashboard/teacher";
+  }
+
+  // 5) Go
+  startTransition(() => router.replace(dest));
+}
+
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4">

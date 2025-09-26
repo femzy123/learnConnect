@@ -75,7 +75,6 @@ export default function UsersTabs({ defaultTab = "teachers", teachersRaw, studen
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Vetting</th>
-                <th className="px-4 py-3">Rate</th>
                 <th className="px-4 py-3">Account</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -89,7 +88,6 @@ export default function UsersTabs({ defaultTab = "teachers", teachersRaw, studen
                     <td className="px-4 py-3">{t.profiles?.full_name || t.user_id}</td>
                     <td className="px-4 py-3">{t.profiles?.phone || "—"}</td>
                     <td className="px-4 py-3"><StatusPill status={t.vetting_status} /></td>
-                    <td className="px-4 py-3">{formatNGN(t.hourly_rate)}</td>
                     <td className="px-4 py-3"><AccountPill status={acct} /></td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">

@@ -12,7 +12,7 @@ export default async function AdminUsersPage(props) {
   const [{ data: teachersRaw = [] }, { data: studentsRaw = [] }] = await Promise.all([
     supabase
       .from("teacher_profiles")
-      .select("user_id, vetting_status, hourly_rate, profiles:profiles(full_name, phone, account_status)"),
+      .select("user_id, vetting_status, profiles:profiles(full_name, phone, account_status)"),
     supabase
       .from("profiles")
       .select("id, full_name, phone, account_status")

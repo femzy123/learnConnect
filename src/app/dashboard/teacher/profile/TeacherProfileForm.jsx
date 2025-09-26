@@ -6,7 +6,6 @@ import { supabase } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
 import AuthErrorAlert from "@/components/AuthErrorAlert";
 import AvatarUploader from "@/components/AvatarUploader";
-import CertificatesList from "@/components/CertificatesList";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -19,6 +18,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import CertificatesList from '@/components/CertificatesList'
+
+const MAX_CERT_SIZE = 10 * 1024 * 1024; // 10 MB
+const CERT_TYPES = [
+  "image/png", "image/jpeg", "image/jpg", "application/pdf",
+];
+
+/**
+ * Props:
+ * - userId: string
+ * - baseProfile: { full_name, phone, avatar_url }
+ * - teacherProfile: { bio, vetting_status } | null
+ * - selectedSubjectIds: number[]
+ * - categories: { id, name }[]
+ * - subjects: { id, category_id, name }[]
+ */
 export default function TeacherProfileForm({
   userId,
   baseProfile,
@@ -27,62 +42,73 @@ export default function TeacherProfileForm({
   categories,
   subjects,
 }) {
-  // --- core identity ---
+  // Identity
   const [fullName, setFullName] = useState(baseProfile?.full_name || "");
   const [phone, setPhone] = useState(baseProfile?.phone || "");
   const [avatarUrl, setAvatarUrl] = useState(baseProfile?.avatar_url || "");
-
-  // --- teaching profile ---
+  // Teaching profile
   const [bio, setBio] = useState(teacherProfile?.bio || "");
-  const [rate, setRate] = useState(
-    teacherProfile?.hourly_rate ? String(teacherProfile.hourly_rate / 100) : ""
-  );
-  const [availability, setAvailability] = useState(
-    Array.isArray(teacherProfile?.availability)
-      ? teacherProfile.availability.join(", ")
-      : ""
-  );
-
-  // --- subject selection ---
+  // Subject selection
   const ALL = "all";
   const [categoryId, setCategoryId] = useState(ALL);
   const [subjectIds, setSubjectIds] = useState(
     new Set((selectedSubjectIds || []).map(String))
   );
 
-  // --- verification uploads ---
+  // Files
   const [hasGovtId, setHasGovtId] = useState(false);
   const [idFile, setIdFile] = useState(null);
-  const [certFile, setCertFile] = useState(null);
+  const [certFiles, setCertFiles] = useState([]); // ← multiple
+  const [certs, setCerts] = useState([]); // { name, size, path, signedUrl? }
 
-  // --- UX / flow ---
+  // UX
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
   const router = useRouter();
 
-  // Determine if a Government ID already exists (hide the field if so)
+  const idBucket = supabase.storage.from("vetting_docs");   // private
+  const certBucket = supabase.storage.from("certificates"); // private
+
+  // Check for existing Gov ID + list certificates
   useEffect(() => {
     let alive = true;
-    async function checkGovtId() {
+    async function bootstrap() {
       if (!userId) return;
-      const { data, error } = await supabase.storage
-        .from("vetting_docs")
-        .list(`${userId}`, { limit: 100, sortBy: { column: "name", order: "asc" } });
+
+      // Gov ID?
+      const { data: idList } = await idBucket.list(`${userId}`, {
+        limit: 100,
+        sortBy: { column: "name", order: "asc" },
+      });
       if (!alive) return;
-      if (error) return; // ignore silently
-      setHasGovtId((data || []).some((f) => f.name.startsWith("id_")));
+      setHasGovtId((idList || []).some((f) => f.name.startsWith("id_")));
+
+      // Certs list
+      const { data: certList } = await certBucket.list(`${userId}`, {
+        limit: 100,
+        sortBy: { column: "name", order: "desc" },
+      });
+      if (!alive) return;
+      setCerts(
+        (certList || []).map((f) => ({
+          name: f.name,
+          size: f.metadata?.size ?? null,
+          path: `${userId}/${f.name}`,
+        }))
+      );
     }
-    checkGovtId();
-    return () => {
-      alive = false;
-    };
+    bootstrap();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // Filter subjects by category (sentinel ALL = no filter)
-  const filteredSubjects = useMemo(() => {
-    if (categoryId === ALL) return subjects;
-    return subjects.filter((s) => String(s.category_id) === categoryId);
-  }, [subjects, categoryId]);
+  // Sign a URL on demand
+  async function getSignedUrl(path) {
+    const { data, error } = await certBucket.createSignedUrl(path, 60); // 60s
+    if (error) throw new Error(error.message);
+    return data.signedUrl;
+  }
 
   function toggleSubject(id) {
     const key = String(id);
@@ -93,24 +119,86 @@ export default function TeacherProfileForm({
     });
   }
 
+  function onPickCertificates(e) {
+    const files = Array.from(e.currentTarget.files || []);
+    // filter by size/type
+    const valid = [];
+    for (const f of files) {
+      if (f.size > MAX_CERT_SIZE) {
+        setError(`"${f.name}" is larger than ${Math.round(MAX_CERT_SIZE/1024/1024)}MB.`);
+        continue;
+      }
+      if (!CERT_TYPES.includes(f.type)) {
+        setError(`"${f.name}" has unsupported type (${f.type}).`);
+        continue;
+      }
+      valid.push(f);
+    }
+    setCertFiles((prev) => [...prev, ...valid]);
+    // reset input
+    e.currentTarget.value = "";
+  }
+
+  async function uploadCertificates() {
+    if (!certFiles.length) return;
+    setUploading(true);
+    setError("");
+
+    const ts = Date.now();
+    for (const f of certFiles) {
+      const safe = f.name.replace(/\s+/g, "_");
+      const path = `${userId}/cert_${ts}_${safe}`;
+      const { error } = await certBucket.upload(path, f, { upsert: false });
+      if (error) {
+        setUploading(false);
+        setError(error.message);
+        return;
+      }
+    }
+    // refresh list
+    const { data: certList, error: lerr } = await certBucket.list(`${userId}`, {
+      limit: 100,
+      sortBy: { column: "name", order: "desc" },
+    });
+    if (!lerr) {
+      setCerts(
+        (certList || []).map((f) => ({
+          name: f.name,
+          size: f.metadata?.size ?? null,
+          path: `${userId}/${f.name}`,
+        }))
+      );
+    }
+    setCertFiles([]);
+    setUploading(false);
+  }
+
+  async function deleteCertificate(path) {
+    setError("");
+    const { error } = await certBucket.remove([path]);
+    if (error) { setError(error.message); return; }
+    setCerts((prev) => prev.filter((c) => c.path !== path));
+  }
+
+  // Filter subjects by category
+  const filteredSubjects = useMemo(() => {
+    if (categoryId === ALL) return subjects;
+    return subjects.filter((s) => String(s.category_id) === categoryId);
+  }, [subjects, categoryId]);
+
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
 
-    // Basic validation
+    // Validation (no global rate in V2)
     if (!fullName.trim() || !phone.trim() || !avatarUrl) {
       setError("Full name, phone number, and profile picture are required.");
       return;
     }
-    const rateMinor = Math.round(Number(rate || 0) * 100);
-    if (!bio.trim() || !rateMinor || subjectIds.size === 0) {
-      setError("Please add a bio, set your hourly rate, and choose at least one subject.");
+    if (!bio.trim() || subjectIds.size === 0) {
+      setError("Please add a short bio and select at least one subject.");
       return;
     }
-
-    // Buckets
-    const idBucket = supabase.storage.from("vetting_docs");   // private (not displayed)
-    const certBucket = supabase.storage.from("certificates"); // private (listed via CertificatesList)
 
     // 1) Save core profile
     const { error: pErr } = await supabase
@@ -125,19 +213,13 @@ export default function TeacherProfileForm({
       .single();
     if (pErr) { setError(pErr.message); return; }
 
-    // 2) Upsert teacher profile; keep 'approved' else set 'pending'
+    // 2) Upsert teacher profile; keep approved if already approved
     let vetting_status = teacherProfile?.vetting_status;
     if (vetting_status !== "approved") vetting_status = "pending";
-
-    const availabilityArray = availability
-      ? availability.split(",").map((s) => s.trim()).filter(Boolean)
-      : [];
 
     const { error: tErr } = await supabase.from("teacher_profiles").upsert({
       user_id: userId,
       bio: bio.trim(),
-      hourly_rate: rateMinor,
-      availability: availabilityArray,
       vetting_status,
     });
     if (tErr) { setError(tErr.message); return; }
@@ -153,16 +235,18 @@ export default function TeacherProfileForm({
       if (sErr) { setError(sErr.message); return; }
     }
 
-    // 4) Upload files (optional)
-    const ts = Date.now();
+    // 4) Upload Gov ID (once)
     if (!hasGovtId && idFile) {
-      const { error } = await idBucket.upload(`${userId}/id_${ts}_${idFile.name}`, idFile, { upsert: true });
+      const ts = Date.now();
+      const safe = idFile.name.replace(/\s+/g, "_");
+      const { error } = await idBucket.upload(`${userId}/id_${ts}_${safe}`, idFile, { upsert: false });
       if (error) { setError(error.message); return; }
+      setHasGovtId(true);
+      setIdFile(null);
     }
-    if (certFile) {
-      const { error } = await certBucket.upload(`${userId}/cert_${ts}_${certFile.name}`, certFile, { upsert: true });
-      if (error) { setError(error.message); return; }
-    }
+
+    // 5) Upload any pending certificates
+    if (certFiles.length) await uploadCertificates();
 
     // Done
     startTransition(() => router.replace("/dashboard/teacher/profile?incomplete=0"));
@@ -207,32 +291,6 @@ export default function TeacherProfileForm({
             />
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="rate">Hourly rate (NGN)</Label>
-              <Input
-                id="rate"
-                type="number"
-                inputMode="numeric"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                placeholder="e.g., 5000"
-              />
-              <p className="text-xs text-muted-foreground">Stored as minor units (×100).</p>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="availability">Availability notes</Label>
-              <Input
-                id="availability"
-                value={availability}
-                onChange={(e) => setAvailability(e.target.value)}
-                placeholder="e.g., weekday evenings"
-              />
-            </div>
-          </div>
-
-          {/* Category filter */}
           <div className="grid gap-2">
             <Label htmlFor="category">Filter subjects by category (optional)</Label>
             <Select value={categoryId} onValueChange={setCategoryId}>
@@ -250,22 +308,22 @@ export default function TeacherProfileForm({
             </Select>
           </div>
 
-          {/* Subject checkboxes */}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {filteredSubjects.map((s) => {
               const id = String(s.id);
               const checked = subjectIds.has(id);
               return (
                 <div key={id} className="flex items-center gap-2 rounded-md border p-2">
-                  <Checkbox
-                    id={`sub-${id}`}
-                    checked={checked}
-                    onCheckedChange={() => toggleSubject(id)}
-                  />
-                  <Label htmlFor={`sub-${id}`} className="text-sm">{s.name}</Label>
+                  <Checkbox id={`sub-${id}`} checked={checked} onCheckedChange={() => toggleSubject(id)} />
+                  <Label htmlFor={`sub-${id}`} className="text-sm">
+                    {s.name}
+                  </Label>
                 </div>
               );
             })}
+            {filteredSubjects.length === 0 && (
+              <p className="text-sm text-muted-foreground">No subjects in this category yet.</p>
+            )}
           </div>
         </div>
       </section>
@@ -284,33 +342,89 @@ export default function TeacherProfileForm({
                 accept=".png,.jpg,.jpeg,.pdf"
                 onChange={(e) => setIdFile(e.target.files?.[0] || null)}
               />
-              <p className="text-xs text-muted-foreground">
-                Upload once. This is private and not shown publicly.
-              </p>
+              <p className="text-xs text-muted-foreground">Upload once. This is private and not shown publicly.</p>
             </div>
           )}
 
           <div className="grid gap-2">
-            <Label htmlFor="certFile">Certification</Label>
+            <Label htmlFor="certFiles">Certifications</Label>
             <Input
-              id="certFile"
+              id="certFiles"
               type="file"
+              multiple
               accept=".png,.jpg,.jpeg,.pdf"
-              onChange={(e) => setCertFile(e.target.files?.[0] || null)}
+              onChange={onPickCertificates}
             />
-            <p className="text-xs text-muted-foreground">
-              Add more certificates anytime to strengthen your profile.
-            </p>
+            {certFiles.length > 0 && (
+              <div className="rounded-md border p-2 text-xs">
+                <div className="mb-1 font-medium">Ready to upload:</div>
+                <ul className="list-disc pl-4">
+                  {certFiles.map((f, i) => (
+                    <li key={i}>{f.name} — {(f.size/1024/1024).toFixed(2)} MB</li>
+                  ))}
+                </ul>
+                <div className="mt-2 flex gap-2">
+                  <Button type="button" onClick={uploadCertificates} disabled={uploading}>
+                    {uploading ? "Uploading…" : "Upload"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setCertFiles([])} disabled={uploading}>
+                    Clear list
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Add multiple files. Max {Math.round(MAX_CERT_SIZE/1024/1024)}MB each.</p>
           </div>
         </div>
 
-        <div className="mt-4">
-          <CertificatesList userId={userId} />
-        </div>
+        {/* Certificates list */}
+        {/* <div className="mt-4 rounded-2xl border">
+          <div className="bg-muted/50 px-3 py-2 text-xs text-muted-foreground">Uploaded certificates</div>
+          {certs.length === 0 ? (
+            <div className="px-3 py-3 text-sm text-muted-foreground">No certificates uploaded yet.</div>
+          ) : (
+            <ul className="divide-y">
+              {certs.map((c) => (
+                <li key={c.path} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{c.name}</div>
+                    {c.size ? <div className="text-xs text-muted-foreground">{(c.size/1024/1024).toFixed(2)} MB</div> : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const url = await getSignedUrl(c.path);
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        } catch (e) {
+                          setError(e.message);
+                        }
+                      }}
+                    >
+                      Download
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => deleteCertificate(c.path)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div> */}
+        <CertificatesList userId={userId} />
       </section>
 
       <div className="flex gap-3">
-        <Button disabled={pending} type="submit">
+        <Button disabled={pending || uploading} type="submit">
           {pending ? "Saving..." : "Save profile"}
         </Button>
       </div>

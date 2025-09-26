@@ -15,7 +15,7 @@ export default async function TeacherGuardLayout({ children }) {
         .single(),
       supabase
         .from("teacher_profiles")
-        .select("bio, hourly_rate")
+        .select("bio")
         .eq("user_id", user.id)
         .maybeSingle(),
       supabase
@@ -36,7 +36,7 @@ export default async function TeacherGuardLayout({ children }) {
   const coreIncomplete =
     !profile?.full_name || !profile?.phone || !profile?.avatar_url;
   const teachIncomplete =
-    !tprof?.bio || !tprof?.hourly_rate || (ts?.length ?? 0) === 0;
+    !tprof?.bio || (ts?.length ?? 0) === 0;
 
   if (coreIncomplete || teachIncomplete) {
     redirect("/dashboard/teacher/profile?incomplete=1");

@@ -67,7 +67,7 @@ export default async function StudentDashboard() {
           <p className="text-muted-foreground">You haven’t created any requests yet.</p>
           <div className="mt-4">
             <Button asChild>
-              <Link href="/dashboard/student/request">Create your first request</Link>
+              <Link href="/dashboard/student/requests/new">Create your first request</Link>
             </Button>
           </div>
         </div>

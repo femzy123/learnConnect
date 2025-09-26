@@ -11,7 +11,7 @@ export default async function TeacherDashboard() {
   const [{ data: profile }, { data: tprof }, { data: ts = [] }, { data: subjects = [] }] =
     await Promise.all([
       supabase.from("profiles").select("full_name, role").eq("id", user?.id || "").single(),
-      supabase.from("teacher_profiles").select("hourly_rate, vetting_status, availability, bio").eq("user_id", user?.id || "").maybeSingle(),
+      supabase.from("teacher_profiles").select("vetting_status, bio").eq("user_id", user?.id || "").maybeSingle(),
       supabase.from("teacher_subjects").select("subject_id").eq("teacher_user_id", user?.id || ""),
       supabase.from("subjects").select("id,name").order("name", { ascending: true }),
     ]);
@@ -36,7 +36,6 @@ export default async function TeacherDashboard() {
       <div className="rounded-2xl border p-4">
         <h2 className="mb-2 text-lg font-semibold">Profile summary</h2>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div><dt className="text-muted-foreground">Hourly rate</dt><dd>{formatNGN(tprof?.hourly_rate)}</dd></div>
           <div><dt className="text-muted-foreground">Subjects</dt><dd>{selectedNames.length ? selectedNames.join(", ") : "—"}</dd></div>
           <div className="sm:col-span-2"><dt className="text-muted-foreground">Bio</dt><dd>{tprof?.bio || "—"}</dd></div>
         </dl>

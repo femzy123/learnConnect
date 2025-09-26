@@ -46,7 +46,7 @@ export default async function AdminTeacherDetailPage(props) {
         .maybeSingle(),
       supabase
         .from("teacher_profiles")
-        .select("bio, hourly_rate, availability, vetting_status")
+        .select("bio, vetting_status")
         .eq("user_id", teacherId)
         .maybeSingle(),
       supabase
@@ -149,14 +149,6 @@ export default async function AdminTeacherDetailPage(props) {
               <div>
                 <div className="text-muted-foreground">Bio</div>
                 <div>{t?.bio || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Availability notes</div>
-                <div>
-                  {Array.isArray(t?.availability) && t.availability.length
-                    ? t.availability.join(", ")
-                    : "—"}
-                </div>
               </div>
             </div>
           </div>
