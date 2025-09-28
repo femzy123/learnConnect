@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { Button } from "@/components/ui/button";
-import { settleStudentTransactions } from "@/lib/server/settleTransactions";
+import { settleStudentTransactions } from "@/utils/payments/settleTransactions";
 
 export const metadata = { title: "Student — Dashboard" };
 
