@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import PaymentStatusWatcher from "./PaymentStatusWatcher";
+import PaymentVerifyWatcher from "./PaymentVerifyWatcher";
 
 export const metadata = { title: "Payment success — LearnConect" };
 
@@ -15,7 +15,7 @@ export default function PaymentSuccessPage({ searchParams }) {
           <p className="text-sm text-muted-foreground">
             Reference: <code>{ref}</code>
           </p>
-          <PaymentStatusWatcher reference={ref} />
+          <PaymentVerifyWatcher reference={ref} to="session" />
         </>
       )}
       <p className="text-sm text-muted-foreground">
@@ -25,11 +25,9 @@ export default function PaymentSuccessPage({ searchParams }) {
         <Button asChild variant="outline">
           <Link href="/dashboard/student">Go to dashboard</Link>
         </Button>
-        {ref && (
-          <Button asChild>
-            <Link href={`/dashboard/student/requests`}>View requests</Link>
-          </Button>
-        )}
+        <Button asChild>
+          <Link href="/dashboard/student/requests">View requests</Link>
+        </Button>
       </div>
     </div>
   );
