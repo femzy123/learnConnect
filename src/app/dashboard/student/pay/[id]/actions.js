@@ -2,7 +2,6 @@
 
 import { createClient } from "@/utils/supabase/server";
 
-// Creates/ensures a session + inserts an initialized transaction, returns data for Paystack inline
 export async function initPaymentAction(prev, formData) {
   const supabase = await createClient();
 
@@ -12,10 +11,9 @@ export async function initPaymentAction(prev, formData) {
   const { data: { user } = {} } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated." };
 
-  // Load the session and ensure it belongs to this student
   const { data: s, error: sErr } = await supabase
     .from("sessions")
-    .select("id, request_id, student_id, teacher_id, price_amount, duration_minutes, payment_status")
+    .select("id, request_id, student_id, teacher_id, price_amount")
     .eq("id", sessionId)
     .single();
 
@@ -23,11 +21,40 @@ export async function initPaymentAction(prev, formData) {
   if (s.student_id !== user.id) return { error: "Not allowed." };
   if (!s.price_amount) return { error: "No amount set for this session." };
 
-  // Insert/ensure a transaction record for this attempt
-  const reference = `LC_${s.id}_${Date.now()}`; // unique-enough for MVP
+  // --- NEW: Ask Paystack to initialize and give us the official reference
+  const secret = process.env.PAYSTACK_SECRET_KEY || "";
+  if (!secret) return { error: "Server not configured." };
+
+  const initResp = await fetch("https://api.paystack.co/transaction/initialize", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: user.email,
+      amount: Number(s.price_amount),   // kobo
+      currency: "NGN",
+      // helpful to bind payment back to our domain
+      metadata: {
+        custom_fields: [
+          { display_name: "Session ID",  variable_name: "session_id",  value: s.id },
+          { display_name: "Request ID",  variable_name: "request_id",  value: s.request_id },
+        ],
+      },
+    }),
+  });
+
+  const initJson = await initResp.json().catch(() => ({}));
+  const ref = initJson?.data?.reference;
+  if (!initResp.ok || !ref) {
+    return { error: initJson?.message || "Failed to initialize Paystack transaction." };
+  }
+
+  // Insert our transaction with Paystack’s reference (idempotent via unique index)
   const { error: tErr } = await supabase.from("transactions").insert({
     provider: "paystack",
-    reference,
+    reference: ref,
     amount: s.price_amount,     // kobo
     currency: "NGN",
     status: "initialized",
@@ -38,12 +65,11 @@ export async function initPaymentAction(prev, formData) {
   });
   if (tErr) return { error: tErr.message };
 
-  // Return what the client needs to open Paystack
   return {
     ok: true,
-    reference,
-    amount: s.price_amount,       // kobo
-    email: user.email || "",      // Paystack requires email
+    reference: ref,                                   // ← use Paystack reference
+    amount: s.price_amount,
+    email: user.email || "",
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "",
     requestId: s.request_id,
     sessionId: s.id,

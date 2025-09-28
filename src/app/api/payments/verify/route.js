@@ -48,6 +48,8 @@ export async function GET(req) {
       cache: "no-store",
     });
 
+    console.log("Paystack verify", resp);
+
     const body = await resp.json().catch(() => ({}));
     // Paystack wraps response in {status:boolean, message, data:{...}}
     const pdata = body?.data;

@@ -33,6 +33,7 @@ export default function PayButton({ sessionId, onInit }) {
       amount: Number(state.amount), // in kobo
       currency: "NGN",
       reference: state.reference,
+      ref: state.reference, 
       metadata: {
         custom_fields: [
           { display_name: "Session ID", variable_name: "session_id", value: state.sessionId },
