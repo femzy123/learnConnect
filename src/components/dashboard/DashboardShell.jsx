@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { LayoutDashboard, ListPlus, MessagesSquare, Users, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, MessagesSquare, ListPlus, User, Inbox, CreditCard } from "lucide-react";
 import UserMenu from "./UserMenu";
 
 /**
@@ -17,14 +17,14 @@ export default function DashboardShell({ role, profile, user, children }) {
     student: [
       { label: "Overview", href: "/dashboard/student", icon: LayoutDashboard },
       { label: "Profile",  href: "/dashboard/student/profile", icon: LayoutDashboard },
-      { label: "New request", href: "/dashboard/student/requests/new", icon: ListPlus },
-      // { label: "Messages", href: "/dashboard/student/messages", icon: MessagesSquare }, // later
+      { label: "Requests",     href: "/dashboard/student/requests",     icon: Inbox },
+      { label: "Sessions",     href: "/dashboard/student/sessions", icon: MessagesSquare }
     ],
     teacher: [
       { label: "Overview", href: "/dashboard/teacher", icon: LayoutDashboard },
-      { label: "Profile",    href: "/dashboard/teacher/profile", icon: LayoutDashboard },
-      { label: "Requests",   href: "/dashboard/teacher/requests", icon: MessagesSquare },
-      // { label: "Sessions", href: "/dashboard/teacher/sessions", icon: MessagesSquare }, // later
+      { label: "Profile",    href: "/dashboard/teacher/profile", icon: User },
+      { label: "Requests",   href: "/dashboard/teacher/requests", icon: Inbox },
+      { label: "Sessions", href: "/dashboard/teacher/sessions", icon: MessagesSquare },
     ],
     admin: [
       { label: "Overview", href: "/dashboard/admin", icon: LayoutDashboard },

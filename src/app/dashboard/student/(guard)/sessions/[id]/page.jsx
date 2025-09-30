@@ -3,101 +3,150 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import MessageList from "@/components/chat/MessageList";
+import { sendMessageAction } from "@/components/chat/actions";
 
 export const metadata = { title: "Session — LearnConect" };
 
 export default async function StudentSessionPage({ params }) {
-  const { id } = await params; // Next 15 style
+  const { id } = await params; // Next 15 pattern
   const supabase = await createClient();
 
+  // Auth
   const { data: { user } = {} } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  // Load the session you own
+  // 1) Load the session (must belong to the student)
   const { data: s } = await supabase
     .from("sessions")
-    .select("id, request_id, student_id, teacher_id, price_amount, duration_minutes, payment_status, scheduled_time, created_at")
+    .select("id, student_id, teacher_id, request_id, payment_status")
     .eq("id", id)
     .maybeSingle();
 
   if (!s) return notFound();
   if (s.student_id !== user.id) redirect("/dashboard/student");
 
-  // Look up teacher name/avatar (optional, nice touch)
-  const { data: teacher } = await supabase
-    .from("profiles")
-    .select("full_name, avatar_url")
-    .eq("id", s.teacher_id)
-    .maybeSingle();
-
-  const amountNGN =
-    s.price_amount != null
-      ? (Number(s.price_amount) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })
-      : "—";
-
-  return (
-    <div className="mx-auto max-w-2xl px-4 py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Session</h1>
-        <div className="flex gap-2">
+  // Gate: chat after payment only (still gate, just not displayed as text badges)
+  const paid = s.payment_status === "paid";
+  if (!paid) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Session</h1>
           <Button asChild variant="outline">
-            <Link href={`/dashboard/student/requests/${s.request_id}`}>← Back to request</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/dashboard/student">Student dashboard</Link>
+            <Link href="/dashboard/student/sessions">← Back to sessions</Link>
           </Button>
         </div>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">
+              Chat unlocks after payment is confirmed for this session.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 2) Resolve details: Subject, Topic, Names
+  //    We query request → subject, and both participant names.
+  const [{ data: req }, { data: teacher }, { data: student }] = await Promise.all([
+    supabase
+      .from("student_requests")
+      .select("id, subject_id, topic")
+      .eq("id", s.request_id)
+      .maybeSingle(),
+    supabase.from("profiles").select("full_name, avatar_url").eq("id", s.teacher_id).maybeSingle(),
+    supabase.from("profiles").select("full_name, avatar_url").eq("id", s.student_id).maybeSingle(),
+  ]);
+
+  let subjectName = "—";
+  if (req?.subject_id) {
+    const { data: subj } = await supabase
+      .from("subjects")
+      .select("name")
+      .eq("id", req.subject_id)
+      .maybeSingle();
+    subjectName = subj?.name || "—";
+  }
+
+  const topic = req?.topic || "—";
+  const teacherName = teacher?.full_name || "Teacher";
+  const studentName = student?.full_name || "Student";
+
+  // 3) Layout: Details (left, sticky) + Chat (right)
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Session</h1>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/student/sessions">← Back to sessions</Link>
+        </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-6 space-y-3 text-sm">
-          <div className="text-muted-foreground">Session ID</div>
-          <div className="font-medium">{s.id}</div>
-
-          <div className="text-muted-foreground pt-2">Teacher</div>
-          <div className="font-medium">
-            {teacher?.full_name || "—"}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div>
-              <div className="text-muted-foreground">Amount</div>
-              <div className="font-semibold">₦{amountNGN}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Duration</div>
-              <div className="font-semibold">{s.duration_minutes || "—"} mins</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div>
-              <div className="text-muted-foreground">Payment status</div>
-              <div className="font-semibold capitalize">{s.payment_status || "pending"}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Scheduled time</div>
-              <div className="font-semibold">
-                {s.scheduled_time ? new Date(s.scheduled_time).toLocaleString() : "Not scheduled yet"}
+      <div className="grid md:grid-cols-12 md:gap-6 gap-4">
+        {/* DETAILS: left column, sticky on desktop */}
+        <aside className="md:col-span-4">
+          <Card className="md:sticky md:top-4">
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Subject</div>
+                <div className="font-medium">{subjectName}</div>
               </div>
-            </div>
-          </div>
 
-          {/* Placeholder actions for upcoming Scheduling feature */}
-          <div className="pt-4 flex gap-2">
-            <Button disabled variant="secondary" title="Coming soon">
-              View proposed times
-            </Button>
-            <Button disabled title="Coming soon">Pick a time</Button>
-          </div>
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Topic</div>
+                <div className="font-medium">{topic}</div>
+              </div>
 
-          {s.payment_status !== "paid" && (
-            <div className="pt-3 text-xs text-muted-foreground">
-              If payment is still pending, go back to the request page to complete payment.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Teacher</div>
+                <div className="font-medium">{teacherName}</div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Participant</div>
+                <div className="font-medium">{studentName}</div>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+
+        {/* CHAT: right column */}
+        <section className="md:col-span-8">
+          <Card>
+            <CardContent className="p-4 md:p-6 space-y-4">
+              {/* Chat header */}
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-primary/10" />
+                <div>
+                  <div className="font-medium leading-none">{teacherName}</div>
+                  <div className="text-xs text-muted-foreground">You’re connected. Be respectful.</div>
+                </div>
+              </div>
+
+              {/* Chat list */}
+              <MessageList
+                sessionId={s.id}
+                currentUserId={user.id}
+                emptyText={`This is the beginning of your chat with your teacher ${teacherName}.`}
+              />
+
+              {/* Composer */}
+              <form action={sendMessageAction} className="flex gap-2">
+                <input type="hidden" name="session_id" value={s.id} />
+                <Input
+                  name="content"
+                  placeholder="Type a message…"
+                  className="h-11 rounded-xl"
+                />
+                <Button type="submit" className="h-11 rounded-xl">Send</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }
