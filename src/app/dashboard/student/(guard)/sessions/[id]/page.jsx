@@ -4,8 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import MessageList from "@/components/chat/MessageList";
-import { sendMessageAction } from "@/components/chat/actions";
+import ChatComposer from "@/components/chat/ChatComposer";
 
 export const metadata = { title: "Session — LearnConect" };
 
@@ -51,15 +50,29 @@ export default async function StudentSessionPage({ params }) {
 
   // 2) Resolve details: Subject, Topic, Names
   //    We query request → subject, and both participant names.
-  const [{ data: req }, { data: teacher }, { data: student }] = await Promise.all([
-    supabase
-      .from("student_requests")
-      .select("id, subject_id, topic")
-      .eq("id", s.request_id)
-      .maybeSingle(),
-    supabase.from("profiles").select("full_name, avatar_url").eq("id", s.teacher_id).maybeSingle(),
-    supabase.from("profiles").select("full_name, avatar_url").eq("id", s.student_id).maybeSingle(),
-  ]);
+  const [{ data: req }, { data: teacher }, { data: student }, { data: me }] =
+    await Promise.all([
+      supabase
+        .from("student_requests")
+        .select("id, subject_id, topic")
+        .eq("id", s.request_id)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", s.teacher_id)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", s.student_id)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .maybeSingle(),
+    ]);
 
   let subjectName = "—";
   if (req?.subject_id) {
@@ -91,22 +104,30 @@ export default async function StudentSessionPage({ params }) {
           <Card className="md:sticky md:top-4">
             <CardContent className="p-6 space-y-4">
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Subject</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Subject
+                </div>
                 <div className="font-medium">{subjectName}</div>
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Topic</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Topic
+                </div>
                 <div className="font-medium">{topic}</div>
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Teacher</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Teacher
+                </div>
                 <div className="font-medium">{teacherName}</div>
               </div>
 
               <div className="space-y-1">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Participant</div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Participant
+                </div>
                 <div className="font-medium">{studentName}</div>
               </div>
             </CardContent>
@@ -122,27 +143,20 @@ export default async function StudentSessionPage({ params }) {
                 <div className="h-9 w-9 rounded-full bg-primary/10" />
                 <div>
                   <div className="font-medium leading-none">{teacherName}</div>
-                  <div className="text-xs text-muted-foreground">You’re connected. Be respectful.</div>
+                  <div className="text-xs text-muted-foreground">
+                    You’re connected. Be respectful.
+                  </div>
                 </div>
               </div>
 
               {/* Chat list */}
-              <MessageList
+              <ChatComposer
                 sessionId={s.id}
                 currentUserId={user.id}
+                meAvatarUrl={me?.avatar_url || student?.avatar_url || ""}
+                otherAvatarUrl={teacher?.avatar_url || ""}
                 emptyText={`This is the beginning of your chat with your teacher ${teacherName}.`}
               />
-
-              {/* Composer */}
-              <form action={sendMessageAction} className="flex gap-2">
-                <input type="hidden" name="session_id" value={s.id} />
-                <Input
-                  name="content"
-                  placeholder="Type a message…"
-                  className="h-11 rounded-xl"
-                />
-                <Button type="submit" className="h-11 rounded-xl">Send</Button>
-              </form>
             </CardContent>
           </Card>
         </section>

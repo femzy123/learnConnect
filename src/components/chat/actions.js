@@ -1,15 +1,30 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import sanitizeHtml from "sanitize-html";
 
-// ✅ Direct form action signature: (formData)
 export async function sendMessageAction(formData) {
   const supabase = await createClient();
 
   const sessionId = String(formData.get("session_id") || "");
-  const content   = String(formData.get("content") || "").trim();
+  const rawContent = String(formData.get("content") || "");
 
-  if (!sessionId || !content) return { error: "Empty message." };
+  // sanitize on server
+  const safe = sanitizeHtml(rawContent, {
+    allowedTags: [
+      "b","i","u","strong","em","a","p","br","ul","ol","li","code","pre","blockquote","span"
+    ],
+    allowedAttributes: {
+      a: ["href","target","rel"],
+      span: ["style"], // future-proof; not required now
+    },
+    transformTags: {
+      a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer", target: "_blank" }),
+    },
+  });
+
+  const plain = safe.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
+  if (!sessionId || !plain) return { error: "Empty message." };
 
   const { data: { user } = {} } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated." };
@@ -27,28 +42,9 @@ export async function sendMessageAction(formData) {
   const { error } = await supabase.from("messages").insert({
     session_id: s.id,
     sender_id: user.id,
-    content,
+    content: safe,
   });
 
   if (error) return { error: error.message };
   return { ok: true };
 }
-
-/* Optional, for later if you pass a server action to a client comp:
-export async function markSeenAction(sessionId) {
-  "use server";
-  const supabase = await createClient();
-  const { data: { user } = {} } = await supabase.auth.getUser();
-  if (!user) return;
-  const { data: s } = await supabase
-    .from("sessions")
-    .select("id, student_id, teacher_id")
-    .eq("id", sessionId)
-    .maybeSingle();
-  if (!s) return;
-  const patch = user.id === s.student_id
-    ? { student_last_seen_at: new Date().toISOString() }
-    : { teacher_last_seen_at: new Date().toISOString() };
-  await supabase.from("sessions").update(patch).eq("id", sessionId);
-}
-*/
