@@ -31,6 +31,7 @@ export default function DashboardShell({ role, profile, user, children }) {
       { label: "Users", href: "/dashboard/admin/users", icon: Users },
       { label: "Requests", href: "/dashboard/admin/requests", icon: ListPlus },
       { label: "Payments", href: "/dashboard/admin/payments", icon: CreditCard },
+      { label: "Sessions", href: "/dashboard/admin/sessions", icon: MessagesSquare },
     ],
   };
 
